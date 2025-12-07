@@ -14,7 +14,7 @@ int main() {
     std::cout << "=== Titan-AGI System Booting (Full Implementation) ===" << std::endl;
     TitanAgent robot;
 
-    // 1. 模拟传感器数据流线程 TODO 考虑按照不同的感知模块拆分线程
+    // 1. 模拟传感器数据流线程
     std::thread sensor_thread([&]() {
         auto t_start = std::chrono::steady_clock::now();
         while(true) {

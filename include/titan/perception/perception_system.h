@@ -71,8 +71,6 @@ public:
     void onCameraFrame(const cv::Mat& img, titan::core::TimePoint t_capture);
     void onAudioMicRaw(const std::vector<int16_t>& pcm, titan::core::TimePoint t_start);
     void onAudioMic(const std::vector<int16_t>& pcm);
-    // [修改] 音频输入不再直接存 RingBuffer，而是喂给 ASR 线程
-    void onAudioMicASR(const std::vector<int16_t>& pcm);
 
     titan::core::FusedContext getContext(titan::core::TimePoint t_query);
     std::vector<int16_t> retrieveRawAudio(double duration_sec);

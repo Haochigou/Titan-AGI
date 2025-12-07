@@ -91,18 +91,6 @@ void PerceptionSystem::onAudioMicRaw(const std::vector<int16_t>& pcm, TimePoint 
     audio_track_.push(chunk);
 }
 
-// [关键] 接收麦克风数据并积攒
-void PerceptionSystem::onAudioMicASR(const std::vector<int16_t>& pcm) {
-    std::lock_guard<std::mutex> lock(audio_mtx_);
-    audio_buffer_.insert(audio_buffer_.end(), pcm.begin(), pcm.end());
-    
-    // 简单模拟 VAD：每积攒 0.5秒 (16k采样率 -> 8000点) 触发一次检测
-    // 实际应使用 WebRTC VAD 或 Silero VAD
-    if (audio_buffer_.size() > 8000) {
-        audio_cv_.notify_one();
-    }
-}
-
 // [关键] ASR 工作线程
 void PerceptionSystem::asrWorkerLoop() {
     while (running_) {
@@ -268,7 +256,15 @@ bool PerceptionSystem::isSpeechChunk(const std::vector<int16_t>& pcm) {
 // 辅助函数 2：触发 ASR 线程（同之前实现的异步逻辑）
 void PerceptionSystem::triggerASRAsync(std::vector<int16_t> pcm_data) {
     // ... 将 pcm_data 放入队列，ASR Worker Thread 异步处理 ...
-    // ... ASR 结果推入 text_track_ ...
+    std::lock_guard<std::mutex> lock(audio_mtx_);
+    audio_buffer_.insert(audio_buffer_.end(), pcm_data.begin(), pcm_data.end());
+    
+    // 简单模拟 VAD：每积攒 0.5秒 (16k采样率 -> 8000点) 触发一次检测
+    // 实际应使用 WebRTC VAD 或 Silero VAD
+    if (audio_buffer_.size() > 8000) {
+        audio_cv_.notify_one();
+    }
+    // 下一步由ASR线程完成转换
 }
 
 // [核心] 音频输入处理函数
