@@ -125,7 +125,7 @@ void PerceptionSystem::process() {
 void PerceptionSystem::reset() {
     // TODO 
 }
-void onImuData(const RobotState& rs) {
+void PerceptionSystem::onImuData(const RobotState& rs) {
         // ... push to body_track_ ...
 }
 void PerceptionSystem::getHistoryContexts(TimePoint t_end, double duration, std::vector<FusedContext>& out_contexts) {

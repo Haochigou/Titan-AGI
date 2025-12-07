@@ -1,2 +1,0 @@
-"/usr/bin/gcc-ar-11" cr libtitan_memory.a CMakeFiles/titan_memory.dir/src/memory/sparse_gp_memory.cpp.o
-"/usr/bin/gcc-ranlib-11" libtitan_memory.a

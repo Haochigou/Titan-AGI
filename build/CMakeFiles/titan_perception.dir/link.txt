@@ -1,2 +1,0 @@
-"/usr/bin/gcc-ar-11" cr libtitan_perception.a CMakeFiles/titan_perception.dir/src/perception/perception_system.cpp.o
-"/usr/bin/gcc-ranlib-11" libtitan_perception.a
