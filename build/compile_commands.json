@@ -1,0 +1,27 @@
+[
+{
+  "directory": "/mnt/d/Workspace/Titan-AGI/build",
+  "command": "/usr/bin/c++  -I/mnt/d/Workspace/Titan-AGI/include, -I/usr/local/include/opencv4 -I/mnt/d/Workspace/Titan-AGI/, -I/mnt/d/Workspace/Titan-AGI/3rd -I/mnt/d/Workspace/Titan-AGI/include -isystem /usr/include/eigen3 -flto -fno-fat-lto-objects -fPIC -O3 -march=native -Wall -Wextra -pthread -std=gnu++17 -o CMakeFiles/titan_memory.dir/src/memory/sparse_gp_memory.cpp.o -c /mnt/d/Workspace/Titan-AGI/src/memory/sparse_gp_memory.cpp",
+  "file": "/mnt/d/Workspace/Titan-AGI/src/memory/sparse_gp_memory.cpp"
+},
+{
+  "directory": "/mnt/d/Workspace/Titan-AGI/build",
+  "command": "/usr/bin/c++  -I/mnt/d/Workspace/Titan-AGI/include, -I/usr/local/include/opencv4 -I/mnt/d/Workspace/Titan-AGI/, -I/mnt/d/Workspace/Titan-AGI/3rd -I/mnt/d/Workspace/Titan-AGI/include -isystem /usr/include/eigen3 -flto -fno-fat-lto-objects -fPIC -O3 -march=native -Wall -Wextra -pthread -std=gnu++17 -o CMakeFiles/titan_perception.dir/src/perception/perception_system.cpp.o -c /mnt/d/Workspace/Titan-AGI/src/perception/perception_system.cpp",
+  "file": "/mnt/d/Workspace/Titan-AGI/src/perception/perception_system.cpp"
+},
+{
+  "directory": "/mnt/d/Workspace/Titan-AGI/build",
+  "command": "/usr/bin/c++  -I/mnt/d/Workspace/Titan-AGI/include, -I/usr/local/include/opencv4 -I/mnt/d/Workspace/Titan-AGI/, -I/mnt/d/Workspace/Titan-AGI/3rd -I/mnt/d/Workspace/Titan-AGI/include -isystem /usr/include/eigen3 -flto -fno-fat-lto-objects -fPIC -O3 -march=native -Wall -Wextra -pthread -std=gnu++17 -o CMakeFiles/titan_control.dir/src/control/fep_controller.cpp.o -c /mnt/d/Workspace/Titan-AGI/src/control/fep_controller.cpp",
+  "file": "/mnt/d/Workspace/Titan-AGI/src/control/fep_controller.cpp"
+},
+{
+  "directory": "/mnt/d/Workspace/Titan-AGI/build",
+  "command": "/usr/bin/c++  -I/mnt/d/Workspace/Titan-AGI/include, -I/usr/local/include/opencv4 -I/mnt/d/Workspace/Titan-AGI/, -I/mnt/d/Workspace/Titan-AGI/3rd -I/mnt/d/Workspace/Titan-AGI/include -isystem /usr/include/eigen3 -flto -fno-fat-lto-objects -fPIC -O3 -march=native -Wall -Wextra -pthread -std=gnu++17 -o CMakeFiles/titan_agent.dir/src/agent/titan_agent.cpp.o -c /mnt/d/Workspace/Titan-AGI/src/agent/titan_agent.cpp",
+  "file": "/mnt/d/Workspace/Titan-AGI/src/agent/titan_agent.cpp"
+},
+{
+  "directory": "/mnt/d/Workspace/Titan-AGI/build",
+  "command": "/usr/bin/c++  -I/mnt/d/Workspace/Titan-AGI/include, -I/usr/local/include/opencv4 -I/mnt/d/Workspace/Titan-AGI/, -I/mnt/d/Workspace/Titan-AGI/3rd -I/mnt/d/Workspace/Titan-AGI/include -isystem /usr/include/eigen3 -flto -fno-fat-lto-objects -fPIE -O3 -march=native -Wall -Wextra -pthread -std=gnu++17 -o CMakeFiles/titan_main.dir/src/main.cpp.o -c /mnt/d/Workspace/Titan-AGI/src/main.cpp",
+  "file": "/mnt/d/Workspace/Titan-AGI/src/main.cpp"
+}
+]

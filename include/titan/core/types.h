@@ -2,6 +2,8 @@
 #include <chrono>
 #include <vector>
 #include <string>
+#include <atomic>
+#include <optional>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <opencv2/core.hpp>
@@ -10,6 +12,27 @@ namespace titan::core {
 
 using TimePoint = std::chrono::steady_clock::time_point;
 using namespace Eigen;
+
+// 组件健康/运行状态
+enum class ComponentState {
+    OFFLINE,        // 未连接
+    INITIALIZING,   // 初始化中
+    READY,          // 正常待机
+    ACTIVE,         // 正在工作 (如正在录音、机械臂正在运动)
+    STALLED,        // 堵转/卡死 (仅针对电机)
+    ERROR,          // 硬件故障
+    OCCLUDED        // 遮挡 (仅针对视觉)
+};
+
+// 系统全局状态快照
+struct SystemStatus {
+    ComponentState vision_state = ComponentState::OFFLINE;
+    ComponentState audio_state = ComponentState::OFFLINE;
+    ComponentState arm_state = ComponentState::OFFLINE;
+    
+    float battery_voltage = 0.0;
+    float cpu_temperature = 0.0;
+};
 
 // 高频本体状态
 struct RobotState {
@@ -67,8 +90,9 @@ struct FusedContext {
     TimePoint timestamp;
     RobotState robot;
     std::optional<VisualFrame> vision;
-    std::vector<int16_t> audio_window;
+    // std::vector<int16_t> audio_window; 原始音频在场景中无法直接使用，还是使用转换后的脚本
     std::optional<AudioTranscript> latest_transcript;
     std::string attention;  // 来自上层的注意力
+    SystemStatus system_status;
 };
 } // namespace titan::core

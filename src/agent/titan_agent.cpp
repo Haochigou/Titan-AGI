@@ -4,6 +4,7 @@
 #include "titan/agent/behavior_arbiter.h"    // 新增
 #include "titan/control/fep_controller.h"
 #include "titan/agent/multi_task_executive.h" // 新增
+#include "titan/agent/action_manager.h"
 #include <iostream>
 #include <map>
 
@@ -14,7 +15,19 @@ using namespace titan::perception;
 using namespace Eigen;
 
 class TitanAgentImpl { // PImpl 模式或直接实现
+    // 硬件驱动实例
+    titan::hal::CameraDriver cam_driver_;
+    titan::hal::RobotBodyDriver body_driver_;
+    
+    titan::control::ActionManager action_mgr_;
 public:
+    TitanAgentImpl() 
+        : cam_driver_([this](auto& f, auto t){ perception_.onCameraFrame(f, t); }),
+          body_driver_([this](auto& s){ perception_.onImuData(s); }),
+          action_mgr_(&body_driver_) 
+    {
+        perception_.attachDrivers(&cam_driver_, &body_driver_);
+    }
     titan::perception::PerceptionSystem perception_;
     titan::control::FEPController controller_;
     titan::perception::AttentionEngine attention_sys_;
@@ -120,56 +133,49 @@ public:
 
 public:
     void tick() {
-        // 1. 获取感知上下文
         auto now = std::chrono::steady_clock::now();
         FusedContext ctx = perception_.getContext(now);
 
-        if (ctx.latest_transcript.has_value()) {
-            const auto& trans = ctx.latest_transcript.value();
-            std::string cmd = trans.text;
-            
-            std::cout << "[Agent] Heard Command: " << cmd << std::endl;
-            
-            // 标记为已处理，防止下一帧重复执行
-            // 注意：这里需要一种机制去标记 RingBuffer 里的数据
-            // 为简化，我们可以在 onUserCommand 内部做去重，或者在这里直接调用
-            this->onUserCommand(cmd); 
-        }
-        if (ctx.latest_transcript.has_value()) {
-            // 假设听到 "小明在哭"
-            // 实际这里应该结合 VLM 和 Audio 分析出结构化事件
-            int xiaoming_id = 101; 
-            memory_mgr_.recordObservation(xiaoming_id, "Xiao Ming is crying", "emotion");
-        }
-        // 2. 更新多任务状态
-        multi_executive_.update(ctx);
-
-        // 3. [关键整合] 获取 Top-down 目标 和 预测误差
-        // 此时使用的是 MultiTaskExecutive
-        std::string focus_target = multi_executive_.getTopDownTarget();
+        // --- 1. 元认知检查 (Metacognition / Self-Check) ---
         
-        // 如果当前任务产生了预测误差，将其注入惊奇度记忆
-        // 这样 AttentionEngine 下一帧就会自动关注那个"出乎意料"的地方
-        // (需要给 MultiTaskExecutive 加一个接口 getCurrentPredictionError)
-        // double error = multi_executive_.getCurrentPredictionError();
-        // if (error > 0.1 && !focus_target.empty()) {
-        //    surprise_memory_[focus_target] += error;
-        // }
+        // 检查：如果手臂堵转 (STALLED)，立即停止并求助
+        if (ctx.system_status.arm_state == ComponentState::STALLED) {
+            std::cout << "[Panic] Arm is STALLED! Releasing torque." << std::endl;
+            // 触发安全策略
+            action_mgr_.execute(VectorXd::Zero(6), "SafetyStop");
+            return;
+        }
 
-        // 4. 计算注意力
-        std::vector<VisualFrame::Detection> raw_dets;
-        if (ctx.vision.has_value()) raw_dets = ctx.vision->detections;
+        // 检查：如果相机正在初始化，不要执行视觉任务
+        if (ctx.system_status.vision_state == ComponentState::INITIALIZING) {
+            std::cout << "[Wait] Vision system warming up..." << std::endl;
+            return;
+        }
+
+        // 检查：如果上一条动作还在执行 (RUNNING)，保持现状 (Inhibition)
+        if (action_mgr_.isBusy()) {
+            // 这里可以做视觉伺服微调，但不要切换大任务
+            return; 
+        }
+
+        // --- 2. 正常认知循环 ---
         
-        auto saliency = attention_sys_.computeSaliency(raw_dets, focus_target, surprise_memory_);
+        // 如果这里发现感知数据是空的，我们可以推理原因：
+        if (!ctx.vision.has_value()) {
+            if (ctx.system_status.vision_state == ComponentState::ACTIVE) {
+                 // 相机是好的，但是没数据 -> 可能是太黑了，或者被遮挡
+                 std::cout << "[Reasoning] Camera active but no detection. Is it dark?" << std::endl;
+            } else {
+                 // 相机坏了
+                 std::cout << "[Reasoning] Blind due to hardware error." << std::endl;
+            }
+        }
 
-        // 5. 竞价
-        std::vector<ActionProposal> proposals;
-        proposals.push_back(proposeSafety());
-        proposals.push_back(multi_executive_.getBestProposal(ctx)); // 获取最佳任务提案
-        proposals.push_back(proposeExploration(saliency));
-
-        // 6. 仲裁
-        arbiter_.arbitrate(proposals);
+        // ... MultiExecutive Update ...
+        // ... Arbitration ...
+        
+        // 执行时，通过 ActionManager
+        // action_mgr_.execute(cmd, "PickUp");
     }
 
     void onUserCommand(const std::string& text) {

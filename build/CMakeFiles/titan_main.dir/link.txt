@@ -1,0 +1,1 @@
+/usr/bin/c++ -flto -fno-fat-lto-objects CMakeFiles/titan_main.dir/src/main.cpp.o -o titan_main  libtitan_agent.a -L/usr/local/lib -lpthread -lopencv_core -lopencv_videoio -lopencv_highgui libtitan_control.a libtitan_memory.a libtitan_perception.a 

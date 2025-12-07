@@ -1,0 +1,7 @@
+/mnt/d/Workspace/Titan-AGI/build/CMakeFiles/titan_memory.dir
+/mnt/d/Workspace/Titan-AGI/build/CMakeFiles/titan_perception.dir
+/mnt/d/Workspace/Titan-AGI/build/CMakeFiles/titan_control.dir
+/mnt/d/Workspace/Titan-AGI/build/CMakeFiles/titan_agent.dir
+/mnt/d/Workspace/Titan-AGI/build/CMakeFiles/titan_main.dir
+/mnt/d/Workspace/Titan-AGI/build/CMakeFiles/edit_cache.dir
+/mnt/d/Workspace/Titan-AGI/build/CMakeFiles/rebuild_cache.dir

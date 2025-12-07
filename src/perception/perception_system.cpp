@@ -109,8 +109,49 @@ FusedContext PerceptionSystem::getContext(TimePoint t_query) {
             ctx.latest_transcript = *latest_trans;
         }
     }
-
+    if (cam_driver_) ctx.system_status.vision_state = cam_driver_->getState();
+    if (body_driver_) ctx.system_status.arm_state = body_driver_->getState();
+        
+    // 模拟电池
+    ctx.system_status.battery_voltage = 24.5;
     return ctx;
 }
 
+void PerceptionSystem::process() {
+    // TODO 这里可以添加周期性处理逻辑，比如清理过期数据等
+    
+}
+
+void PerceptionSystem::reset() {
+    // TODO 
+}
+void onImuData(const RobotState& rs) {
+        // ... push to body_track_ ...
+}
+void PerceptionSystem::getHistoryContexts(TimePoint t_end, double duration, std::vector<FusedContext>& out_contexts) {
+    /*
+    TimePoint t_start = t_end - std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double>(duration));
+    auto body_records = body_track_.getInRange(t_start, t_end);
+    auto vision_records = vision_track_.getInRange(t_start, t_end);
+    auto text_records = text_track_.getInRange(t_start, t_end);
+    
+    // 简单合并逻辑：按时间戳排序
+    std::vector<TimePoint> all_timestamps;
+    for (const auto& r : body_records) all_timestamps.push_back(r.timestamp);
+    for (const auto& r : vision_records) all_timestamps.push_back(r.timestamp);
+    for (const auto& r : text_records) all_timestamps.push_back(r.timestamp);
+    
+    std::sort(all_timestamps.begin(), all_timestamps.end());
+    all_timestamps.erase(std::unique(all_timestamps.begin(), all_timestamps.end()), all_timestamps.end());
+    
+    for (const auto& t : all_timestamps) {
+        FusedContext ctx = getContext(t);
+        out_contexts.push_back(ctx);
+    }
+    */
+}
+
+
+
 } // namespace titan::perception
+

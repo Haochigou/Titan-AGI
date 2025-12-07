@@ -13,7 +13,7 @@ namespace titan::agent {
 // 告诉编译器 "有一个类叫 TitanAgentImpl，具体长什么样你先别管，反正我只存它的指针"
 class TitanAgentImpl;
 
-class TitanAgent {
+class TitanAgent {    
 public:
     TitanAgent();
     // [关键点 2] 析构函数必须在 .cpp 中实现
