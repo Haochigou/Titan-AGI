@@ -48,10 +48,23 @@ struct RobotState {
     float head_pitch; // 头部俯仰角度
 };
 
+enum class FrameQuality {
+    VALID,          // 高质量，且有变化
+    BLURRY,         // 运动模糊，已丢弃
+    STATIC,         // 画面静止，已跳过
+    DARK            // 光线过暗 (可选)
+};
+
 // 视觉帧
 struct VisualFrame {
     TimePoint timestamp;
     cv::Mat image;
+
+    // [新增] 质量与状态标签
+    FrameQuality quality = FrameQuality::VALID;
+    double blur_score = 0.0;    // 清晰度评分
+    double motion_score = 0.0;  // 变化幅度评分
+
     struct Detection {
         std::string label;
         float confidence;
@@ -69,6 +82,14 @@ struct AudioTranscript {
     std::string speaker_id;    // (可选) 说话人ID，这里需要使用声音特征标识
     double confidence;         // 置信度
     bool processed = false;    // 标记是否已被 Agent 消费
+};
+
+// 音频活动检测状态
+enum class VADState {
+    SILENCE,        // 静音/背景噪声
+    SPEECH_START,   // 刚检测到语音开始
+    SPEECH_ACTIVE,  // 正在持续说话
+    SPEECH_END      // 语音结束 (触发 ASR)
 };
 
 // 原始音频

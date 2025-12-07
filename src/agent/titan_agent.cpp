@@ -133,10 +133,27 @@ public:
 
 public:
     void tick() {
+        // 0. 控制器状态自愈 (尝试缓慢恢复增益)
+        controller_.updateInternalState();
+
         auto now = std::chrono::steady_clock::now();
         FusedContext ctx = perception_.getContext(now);
 
-        // --- 1. 元认知检查 (Metacognition / Self-Check) ---
+        // 1. 感知质量检查
+        if (ctx.vision.has_value()) {
+            const auto& v_frame = ctx.vision.value();
+
+            if (v_frame.quality == FrameQuality::BLURRY) {
+                // [触发点] 视觉模糊 -> 抑制运动
+                std::cout << "[Reflex] Vision blur detected! Stabilizing..." << std::endl;
+                controller_.reduceGainForStability();
+                
+                // 模糊时，不要进行复杂的认知更新，直接返回或仅做安全控制
+                // return; // 可选：跳过本帧剩余逻辑
+            }
+        }
+
+        // --- 2. 元认知检查 (Metacognition / Self-Check) ---
         
         // 检查：如果手臂堵转 (STALLED)，立即停止并求助
         if (ctx.system_status.arm_state == ComponentState::STALLED) {
@@ -158,16 +175,31 @@ public:
             return; 
         }
 
-        // --- 2. 正常认知循环 ---
+        // --- 3. 正常认知循环 ---
         
         // 如果这里发现感知数据是空的，我们可以推理原因：
-        if (!ctx.vision.has_value()) {
-            if (ctx.system_status.vision_state == ComponentState::ACTIVE) {
-                 // 相机是好的，但是没数据 -> 可能是太黑了，或者被遮挡
-                 std::cout << "[Reasoning] Camera active but no detection. Is it dark?" << std::endl;
-            } else {
-                 // 相机坏了
-                 std::cout << "[Reasoning] Blind due to hardware error." << std::endl;
+        if (ctx.vision.has_value()) {
+            const auto& v_frame = ctx.vision.value();
+
+            switch (v_frame.quality) {
+                case FrameQuality::BLURRY:
+                    // 机器人发现自己看东西糊了
+                    // 推理：是不是我动得太快了？
+                    // 决策：降低 FEP 控制器的运动速度增益，让身体稳一点
+                    controller_.reduceGainForStability();
+                    std::cout << "[Meta] Vision is blurry, slowing down..." << std::endl;
+                    break;
+
+                case FrameQuality::STATIC:
+                    // 画面静止，没有新检测结果
+                    // 决策：复用上一帧的 Memory/Object State，不更新位置
+                    // 这是一种"视觉暂留"
+                    break;
+
+                case FrameQuality::VALID:
+                    // 正常更新 Cognition Engine
+                    // cognition_engine_.update(...)
+                    break;
             }
         }
 
@@ -228,6 +260,6 @@ void TitanAgent::feedSensors(const titan::core::RobotState& rs, const cv::Mat& i
 
 void TitanAgent::feedAudio(const std::vector<int16_t>& pcm) {
     // 假设 Impl 中有 perception_ 成员
-    impl_->perception_.onAudioMicASR(pcm);
+    impl_->perception_.onAudioMic(pcm);
 }
 } // namespace titan::agent

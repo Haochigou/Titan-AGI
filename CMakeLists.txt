@@ -54,4 +54,4 @@ target_link_libraries(titan_agent PUBLIC titan_control titan_perception)
 
 # --- 可执行文件 ---
 add_executable(titan_main src/main.cpp)
-target_link_libraries(titan_main PRIVATE titan_agent -L${OpenCV_LIB} -lpthread -lopencv_core -lopencv_videoio -lopencv_highgui)
+target_link_libraries(titan_main PRIVATE titan_agent -L${OpenCV_LIB} -lpthread -lopencv_core -lopencv_videoio -lopencv_highgui -lopencv_imgproc)

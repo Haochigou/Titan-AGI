@@ -20,11 +20,68 @@ PerceptionSystem::~PerceptionSystem() {
 void PerceptionSystem::onImuJointData(const RobotState& s) { body_track_.push(s); }
 
 void PerceptionSystem::onCameraFrame(const cv::Mat& img, TimePoint t_capture) {
-    VisualFrame frame;
+    titan::core::VisualFrame frame;
     frame.timestamp = t_capture;
-    frame.image = img.clone();
-    // 模拟 YOLO ...
+    // 存入原始图 (供显示或后续回溯)
+    frame.image = img.clone(); 
+
+    // [Step 0] 预处理准备：转灰度 + 缩小 (加速计算)
+    cv::Mat small_gray;
+    cv::cvtColor(img, small_gray, cv::COLOR_BGR2GRAY);
+    // 缩放到 320 宽，保持比例，大幅加速计算
+    float scale = 320.0f / img.cols;
+    cv::resize(small_gray, small_gray, cv::Size(), scale, scale);
+
+    // [Step 1] 模糊检测 (L0 Filter)
+    double blur_val = calculateBlurScore(small_gray);
+    frame.blur_score = blur_val;
+
+    if (blur_val < blur_threshold_) {
+        // 图片太糊了，可能是机器人在快速甩头
+        // 此时强行跑 YOLO 只会得到幻觉
+        frame.quality = titan::core::FrameQuality::BLURRY;
+        
+        // 推入缓冲，但没有任何 detection
+        vision_track_.push(frame);
+        
+        // Log 方便调试，实际运行时可去掉
+        // std::cout << "[Vision] Skipped BLURRY frame. Score: " << blur_val << std::endl;
+        return; 
+    }
+
+    // [Step 2] 运动/静止检测 (L1 Filter)
+    double motion_val = calculateMotionScore(small_gray);
+    frame.motion_score = motion_val;
+    skipped_count_++;
+
+    // 触发处理的条件：
+    // 1. 画面变化够大 (有东西动了，或者机器人动了)
+    // 2. 或者是第一帧
+    // 3. 或者是强制心跳帧 (防止长时间静止导致漏掉微小变化)
+    bool should_process = (motion_val > motion_threshold_) || 
+                          (last_processed_gray_.empty()) ||
+                          (skipped_count_ > force_process_interval_);
+
+    if (!should_process) {
+        frame.quality = titan::core::FrameQuality::STATIC;
+        vision_track_.push(frame);
+        return; 
+    }
+
+    // [Step 3] 深度感知 (L2 Process - YOLO/VLM)
+    // 只有通过了前两关，才消耗算力
+    
+    // 重置计数器，更新参考帧
+    skipped_count_ = 0;
+    last_processed_gray_ = small_gray.clone(); 
+
+    // 调用 YOLO
+    // frame.detections = yolo_engine_.detect(img); 
+    frame.quality = titan::core::FrameQuality::VALID;
+    
     vision_track_.push(frame);
+    
+    // std::cout << "[Vision] Processed VALID frame. Motion: " << motion_val << "%" << std::endl;
 }
 
 void PerceptionSystem::onAudioMicRaw(const std::vector<int16_t>& pcm, TimePoint t_start) {
@@ -151,7 +208,107 @@ void PerceptionSystem::getHistoryContexts(TimePoint t_end, double duration, std:
     */
 }
 
+// 1. 拉普拉斯方差法检测模糊 (Variance of Laplacian)
+// 原理：清晰图片边缘多，拉普拉斯变换后方差大；模糊图片方差小。
+double PerceptionSystem::calculateBlurScore(const cv::Mat& gray) {
+    cv::Mat laplacian;
+    cv::Laplacian(gray, laplacian, CV_64F);
+    
+    cv::Scalar mean, stddev;
+    cv::meanStdDev(laplacian, mean, stddev);
+    
+    // 方差 = 标准差的平方
+    return stddev.val[0] * stddev.val[0];
+}
 
+// 2. 帧差法检测运动 (Frame Difference)
+double PerceptionSystem::calculateMotionScore(const cv::Mat& curr_gray) {
+    if (last_processed_gray_.empty()) return 100.0; // 第一帧必处理
 
+    cv::Mat diff, diff_thresh;
+    cv::absdiff(curr_gray, last_processed_gray_, diff);
+    
+    // 简单的阈值化，统计变化像素占比
+    cv::threshold(diff, diff_thresh, 30, 255, cv::THRESH_BINARY);
+    
+    int non_zero = cv::countNonZero(diff_thresh);
+    double percent = (double)non_zero / (double)(curr_gray.total()) * 100.0;
+    
+    return percent;
+}
+
+// 辅助函数 1：基于能量和 ZCR 进行判断
+bool PerceptionSystem::isSpeechChunk(const std::vector<int16_t>& pcm) {
+    if (pcm.empty()) return false;
+
+    // 1. 能量计算 (Energy): 衡量响度
+    long long energy = 0;
+    for (int16_t sample : pcm) {
+        energy += (long long)sample * sample;
+    }
+    // 取平均平方根能量
+    double rms_energy = std::sqrt((double)energy / pcm.size());
+
+    // 2. 过零率计算 (ZCR): 衡量频率特征
+    int zero_crossings = 0;
+    for (size_t i = 1; i < pcm.size(); ++i) {
+        if ((pcm[i] >= 0 && pcm[i-1] < 0) || (pcm[i] < 0 && pcm[i-1] >= 0)) {
+            zero_crossings++;
+        }
+    }
+
+    // 语音判断逻辑：
+    // 1. 必须足够响亮 (过滤掉微弱的背景音)
+    // 2. ZCR 必须在合理范围内 (高 ZCR 是白噪声，低 ZCR 是持续的低频音)
+    bool is_voiced = (rms_energy > ENERGY_THRESHOLD) && (zero_crossings < ZCR_THRESHOLD);
+    
+    return is_voiced;
+}
+
+// 辅助函数 2：触发 ASR 线程（同之前实现的异步逻辑）
+void PerceptionSystem::triggerASRAsync(std::vector<int16_t> pcm_data) {
+    // ... 将 pcm_data 放入队列，ASR Worker Thread 异步处理 ...
+    // ... ASR 结果推入 text_track_ ...
+}
+
+// [核心] 音频输入处理函数
+void PerceptionSystem::onAudioMic(const std::vector<int16_t>& pcm) {
+    bool is_speech = isSpeechChunk(pcm);
+    titan::core::VADState current_state = vad_state_.load();
+
+    if (current_state == titan::core::VADState::SILENCE) {
+        if (is_speech) {
+            // 状态转换: SILENCE -> SPEECH_ACTIVE
+            vad_state_ = titan::core::VADState::SPEECH_ACTIVE;
+            asr_audio_buffer_.insert(asr_audio_buffer_.end(), pcm.begin(), pcm.end());
+            silence_chunk_counter_ = 0;
+            // 
+        }
+    } 
+    else if (current_state == titan::core::VADState::SPEECH_ACTIVE) {
+        if (is_speech) {
+            // 继续说话
+            asr_audio_buffer_.insert(asr_audio_buffer_.end(), pcm.begin(), pcm.end());
+            silence_chunk_counter_ = 0;
+        } else {
+            // 检测到静音尾部
+            silence_chunk_counter_++;
+            // 依然积累一小段静音，防止用户说话中断
+            asr_audio_buffer_.insert(asr_audio_buffer_.end(), pcm.begin(), pcm.end());
+
+            if (silence_chunk_counter_ > MAX_SILENCE_CHUNKS) {
+                // 状态转换: SPEECH_ACTIVE -> SPEECH_END (触发 ASR)
+                vad_state_ = titan::core::VADState::SPEECH_END;
+                
+                // 异步触发 ASR
+                triggerASRAsync(std::move(asr_audio_buffer_)); 
+                asr_audio_buffer_.clear();
+                
+                // 重置状态
+                vad_state_ = titan::core::VADState::SILENCE;
+            }
+        }
+    }
+}
 } // namespace titan::perception
 
