@@ -5,6 +5,9 @@
 #include "titan/control/fep_controller.h"
 #include "titan/agent/multi_task_executive.h" // 新增
 #include "titan/agent/action_manager.h"
+#include "titan/memory/cognitive_stream.h"
+#include "titan/learning/strategy_optimizer.h"
+#include "hal/tts_engine.h" // 新增头文件
 #include <iostream>
 #include <map>
 
@@ -18,8 +21,10 @@ class TitanAgentImpl { // PImpl 模式或直接实现
     // 硬件驱动实例
     titan::hal::CameraDriver cam_driver_;
     titan::hal::RobotBodyDriver body_driver_;
-    
+    titan::memory::CognitiveStream stream_;
+    titan::learning::StrategyOptimizer learner_;
     titan::control::ActionManager action_mgr_;
+    titan::hal::TTSEngine tts_engine_;
 public:
     TitanAgentImpl() 
         : cam_driver_([this](auto& f, auto t){ perception_.onCameraFrame(f, t); }),
@@ -40,6 +45,7 @@ public:
     std::string current_user_task_; // 用户指令
     std::map<std::string, double> surprise_memory_; // 短期惊奇记忆
     bool is_emergency_ = false;
+    std::string current_task_desc_;
 
     // --- 行为模块 (Schema) ---
 
@@ -132,13 +138,25 @@ public:
     }
 
 public:
+    
     void tick() {
         // 0. 控制器状态自愈 (尝试缓慢恢复增益)
         controller_.updateInternalState();
 
         auto now = std::chrono::steady_clock::now();
-        FusedContext ctx = perception_.getContext(now);
+        auto ctx = perception_.getContext(now);
 
+        stream_.addVisualContext(ctx);
+        stream_.addSystemStatus(ctx.system_status);
+        
+        if (ctx.latest_transcript) {
+            stream_.addEvent(titan::core::EventType::PERCEPTION_AUDIO, 
+                             "User said: " + ctx.latest_transcript->text);
+        }
+        if (tts_engine_.isSpeaking()) {
+            // std::cout << "[Agent] I am speaking, ignoring mic..." << std::endl;
+            // return; // 可选：跳过本帧的某些听觉处理
+        }
         // 1. 感知质量检查
         if (ctx.vision.has_value()) {
             const auto& v_frame = ctx.vision.value();
@@ -208,6 +226,70 @@ public:
         
         // 执行时，通过 ActionManager
         // action_mgr_.execute(cmd, "PickUp");
+        // 2. 决策与思考 (System 2 Loop)
+        // 并非每帧都触发，而是事件驱动
+        if (shouldTriggerThinking()) {
+            
+            // A. 构建 Prompt (包含：流历史 + 学习到的策略)
+            // A. 获取当前流的摘要 (用于检索)
+            // 简单取最近 5 条事件的 summary
+            std::string recent_context_str = stream_.buildContextPrompt(); 
+            
+            // B. [检索] 根据当前情况，只提取相关的策略
+            // 比如检测到 "Blurry"，这里就会提取出 "Stop when blurry" 的策略
+            std::string relevant_strategies = learner_.retrieveRelevantStrategies(
+                current_task_desc_, // 当前任务描述
+                "Vision is " + std::to_string((int)ctx.system_status.vision_state) // 简单的状态描述
+            );
+            
+            // C. 构建最终 Prompt
+            std::string final_prompt = 
+                relevant_strategies + "\n" + // 只有相关的策略
+                recent_context_str + "\n" +  // 最近的认知流
+                "Goal: Decide next action.\nAction:";
+            
+                // B. LLM 推理 (生成 Thought + Action + TTS)
+                // Output Example: 
+                // Thought: User is angry. I should stop.
+                // Say: "Stopping now."
+                // Act: Stop()
+                
+            // D. LLM 推理 & 执行 (同前)
+            // [模拟 LLM 输出解析]
+            stream_.addEvent(EventType::THOUGHT_CHAIN, "User seems urgent. Priority: Safety.");
+            
+            // C. 生成行为 (统一处理)
+            performBehavior(EventType::ACTION_VERBAL, "Stopping immediately.");
+            performBehavior(EventType::ACTION_PHYSICAL, "EMERGENCY_STOP");
+        }
+    }
+
+    bool shouldTriggerThinking() {
+        // TODO 
+        return true;
+    }
+    // 统一行为执行器
+    void performBehavior(EventType type, const std::string& content) {
+        // 1. 记录到流
+        stream_.addEvent(type, content);
+
+        // 2. 物理执行
+        if (type == titan::core::EventType::ACTION_VERBAL) {
+            // [调用 TTS]
+            tts_engine_.speakAsync(content);
+        } 
+        else if (type == titan::core::EventType::ACTION_PHYSICAL) {
+            // [调用 运动控制]
+            // action_mgr_.execute(content);
+        }
+    }
+
+    // 任务结束回调
+    void onTaskFinished(bool success) {
+        // 触发反思学习
+        auto history = stream_.getEpisodeHistory();
+        learner_.reflectOnEpisode(history, success);
+        stream_.clear(); // 清空短期记忆，开始新周期
     }
 
     void onUserCommand(const std::string& text) {
@@ -224,7 +306,13 @@ public:
 
         // 这里的 text 已经是 ASR 转好的文本了
         if (text == "Stop") {
-            // 紧急停止
+            // 1. 物理急停
+            // action_mgr_.stop();
+            
+            // 2. 嘴巴闭嘴 (打断当前的废话)
+            tts_engine_.stop();
+            // 3. 反馈
+            performBehavior(titan::core::EventType::ACTION_VERBAL, "Stopping.");
         } else {
             // 扔给 System 2 (Strategic Planner) 进行语义分析和任务生成
             multi_executive_.addInstruction(text);

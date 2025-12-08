@@ -33,6 +33,11 @@ target_include_directories(titan_core INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
+add_library(titan_hal STATIC 
+    src/hal/tts_engine.cpp
+    # src/hal/camera_driver.cpp (如果有独立文件)
+)
+target_link_libraries(titan_hal PUBLIC titan_core)
 target_link_libraries(titan_core INTERFACE Eigen3::Eigen)
 
 # --- 实现模块 ---
@@ -50,7 +55,7 @@ target_link_libraries(titan_control PUBLIC titan_memory)
 
 # Agent
 add_library(titan_agent STATIC src/agent/titan_agent.cpp)
-target_link_libraries(titan_agent PUBLIC titan_control titan_perception)
+target_link_libraries(titan_agent PUBLIC titan_control titan_perception titan_hal)
 
 # --- 可执行文件 ---
 add_executable(titan_main src/main.cpp)

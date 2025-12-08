@@ -4,14 +4,58 @@
 #include <string>
 #include <atomic>
 #include <optional>
+#include <variant>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <opencv2/core.hpp>
+#include "nlohmann_json/json.hpp"
 
 namespace titan::core {
 
+using json = nlohmann::json;
 using TimePoint = std::chrono::steady_clock::time_point;
 using namespace Eigen;
+
+
+enum class EventType {
+    // 输入 (Input)
+    PERCEPTION_VISUAL,   // 看到了什么
+    PERCEPTION_AUDIO,    // 听到了什么 (User Command)
+    PERCEPTION_BODY,     // 感觉到了什么 (Status/Error)
+    
+    // 内部过程 (Internal Process)
+    THOUGHT_CHAIN,       // CoT 推理过程
+    DECISION_SWITCH,     // 任务切换/仲裁结果
+    
+    // 输出 (Output / Behavior)
+    ACTION_PHYSICAL,     // 机械臂动作
+    ACTION_VERBAL        // TTS 语音表达
+};
+
+// 认知事件单元
+struct CognitiveEvent {
+    TimePoint timestamp;
+    EventType type;
+    
+    std::string summary;   // 自然语言描述 (用于 Prompt)
+    json detailed_data;    // 结构化数据 (用于回溯分析)
+    
+    // 序列化为字符串，用于构建 LLM Context
+    std::string toString() const {
+        std::string prefix;
+        switch(type) {
+            case EventType::PERCEPTION_VISUAL: prefix = "[Eye]"; break;
+            case EventType::PERCEPTION_AUDIO:  prefix = "[Ear]"; break;
+            case EventType::THOUGHT_CHAIN:     prefix = "[Think]"; break;
+            case EventType::DECISION_SWITCH:   prefix = "[Decide]"; break;
+            case EventType::ACTION_PHYSICAL:   prefix = "[Act]"; break;
+            case EventType::ACTION_VERBAL:     prefix = "[Say]"; break;
+            default: prefix = "[Info]";
+        }
+        // 格式: [T+1.2s] [Think] Planning to grasp cup...
+        return prefix + " " + summary;
+    }
+};
 
 // 组件健康/运行状态
 enum class ComponentState {
