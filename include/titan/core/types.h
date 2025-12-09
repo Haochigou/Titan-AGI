@@ -15,7 +15,54 @@ namespace titan::core {
 using json = nlohmann::json;
 using TimePoint = std::chrono::steady_clock::time_point;
 using namespace Eigen;
+// --- 视觉检测结果：瞬时感知 (System 1 Input) ---
+struct VisualDetection {
+    // 识别与置信度
+    std::string label;
+    double confidence = 0.0;
 
+    // 2D 图像空间信息
+    cv::Rect box;         // 边界框 (像素坐标)
+    cv::Mat mask;         // 分割掩码 (可选，用于精确抓取)
+
+    // 3D 物理空间信息 (由深度相机和相机校准计算)
+    Eigen::Vector3d position_3d = Eigen::Vector3d::Zero(); // 世界坐标系下的 3D 位置 (x, y, z)
+};
+// --- 辅助结构体：语义属性 ---
+// 用于存储物体的先验知识或 LLM 推理结果，并带有一个置信度
+struct SemanticAttribute {
+    double confidence = 0.0; // 置信度 (0.0 - 1.0)
+    std::string value;       // 属性值 (例如: "true", "ceramic", "heavy")
+};
+
+// --- 核心结构体：世界实体 ---
+struct WorldEntity {
+    // I. 追踪与身份 (Tracking & Identity)
+    int track_id = -1;
+    TimePoint last_seen; // 上次看到的时间
+    int age = 0;         // 实体存活的帧数
+    int hit_streak = 0;  // 连续被检测到的帧数
+
+    // II. 视觉与感知 (Perception State)
+    std::string category;   // 语义标签 (e.g., "cup", "person")
+    cv::Rect last_box;      // 最后的 2D 边界框
+    cv::Mat last_mask;      // 最后的分割掩码 (用于精确抓取或碰撞检测)
+
+    // III. 物理状态 (Physical State - 3D World Model)
+    // 假设这些值是基于传感器融合和校准后的 3D 坐标
+    Eigen::Vector3d position = Eigen::Vector3d::Zero(); // 3D 位置 (x, y, z)
+    Eigen::Vector3d velocity = Eigen::Vector3d::Zero(); // 3D 速度 (Vx, Vy, Vz)
+    
+    // IV. 认知状态 (Cognitive State - Semantic Graph)
+    // 存储物体的行为先验和不可见属性，是决策的基础
+    std::map<std::string, SemanticAttribute> knowledge_graph;
+
+    // 常用查询函数 (仅示例)
+    bool isGraspable() const {
+        auto it = knowledge_graph.find("graspable");
+        return it != knowledge_graph.end() && it->second.value == "true" && it->second.confidence > 0.5;
+    }
+};
 
 enum class EventType {
     // 输入 (Input)
@@ -160,4 +207,5 @@ struct FusedContext {
     std::string attention;  // 来自上层的注意力
     SystemStatus system_status;
 };
+
 } // namespace titan::core

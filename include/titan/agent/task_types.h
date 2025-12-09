@@ -7,7 +7,7 @@
 
 namespace titan::agent {
 
-enum class TaskStatus { PENDING, RUNNING, COMPLETED, FAILED, RETRYING };
+enum class TaskStatus { PENDING, ACTIVE, COMPLETED, FAILED };
 
 // 任务优先级枚举
 enum class PriorityLevel {

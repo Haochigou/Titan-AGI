@@ -10,7 +10,7 @@ namespace titan::perception {
 using namespace titan::core;
 
 struct AttentionalObject {
-    VisualFrame::Detection raw_det;
+    VisualDetection raw_det;
     double bottom_up_score;  // Saliency (Motion, Surprise, Contrast)
     double top_down_score;   // Task Relevance
     double total_saliency;   // Weighted Sum
@@ -35,7 +35,7 @@ public:
     // task_desc: 当前任务描述 (e.g., "red bottle")
     // surprise_map: 从 FEP 获得的惊奇度 (ObjectId -> SurpriseValue)
     std::vector<AttentionalObject> computeSaliency(
-        const std::vector<VisualFrame::Detection>& detections,
+        const std::vector<VisualDetection>& detections,
         const std::string& task_keyword,
         const std::map<std::string, double>& surprise_map
     ) {
