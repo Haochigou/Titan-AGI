@@ -56,13 +56,13 @@ graph TD
     classDef decision fill:#fce4ec,stroke:#c2185b,stroke-width:2px;
 
     %% --- 硬件输入 ---
-    Sensors(Sensors<br/>Camera / Lidar / Body Status) ::: hardware --> Perception[Perception System] ::: logic
+    Sensors(Sensors<br/>Camera / Lidar / Body Status):::hardware --> Perception[Perception System]:::logic
 
     %% --- 核心：世界模型 ---
     subgraph WorldModel [World Model & Cognition]
         direction TB
-        Perception --> |Visual Detections| ObjEng[Object Cognition Engine] ::: memory
-        Perception --> |Env Metrics| SceneEng[Scene Memory Engine] ::: memory
+        Perception --> |Visual Detections| ObjEng[Object Cognition Engine]:::memory
+        Perception --> |Env Metrics| SceneEng[Scene Memory Engine]:::memory
         
         ObjEng -- Entities + ID --> Context((Fused Context))
         SceneEng -- Scene Node + Battery --> Context
@@ -70,26 +70,26 @@ graph TD
 
     %% --- System 1: 快速反应 ---
     subgraph Sys1 [System 1: Fast & Reactive]
-        Context --> Safety[Safety Reflex] ::: logic
+        Context --> Safety[Safety Reflex]:::logic
         Safety --> |Proposal P=100.0| Arbiter
     end
 
     %% --- System 2: 慢速规划 ---
     subgraph Sys2 [System 2: Slow & Deliberative]
-        Context --> Executive[MultiTask Executive] ::: logic
+        Context --> Executive[MultiTask Executive]:::logic
         
         %% 记忆与 RAG
-        Stream[(Cognitive Stream)] ::: memory <--> Executive
-        Strategy[(Strategy Optimizer)] ::: memory -.-> |RAG: Learned Policy| Executive
+        Stream[(Cognitive Stream)]:::memory <--> Executive
+        Strategy[(Strategy Optimizer)]:::memory -.-> |RAG: Learned Policy| Executive
         
         Executive --> |Proposal P=5.0/1.5| Arbiter
     end
 
     %% --- 仲裁与执行 ---
-    Arbiter{Behavior Arbiter} ::: decision
+    Arbiter{Behavior Arbiter}:::decision
     
-    Arbiter --> |Winner-Take-All| ActionMgr[Action Manager] ::: logic
-    ActionMgr --> Robot(Robot Hardware) ::: hardware
+    Arbiter --> |Winner-Take-All| ActionMgr[Action Manager]:::logic
+    ActionMgr --> Robot(Robot Hardware):::hardware
 
     %% --- 隐式闭环 ---
     Robot -.-> |Physical Feedback| Sensors
