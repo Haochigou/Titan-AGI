@@ -6,8 +6,13 @@
 #include "titan/learning/strategy_optimizer.h"
 #include "titan/memory/cognitive_stream.h"
 #include "titan/cognition/object_cognition.h"
+#include "titan/cognition/scene_memory.h"
+#include "titan/control/action_manager.h"
 #include <algorithm>
 #include <vector>
+#include <string>
+#include <future>
+#include <chrono>
 
 namespace titan::agent {
 
@@ -29,10 +34,30 @@ private:
     std::string current_focus_id_;
     titan::learning::StrategyOptimizer *strategy_optimizer_{nullptr};
     titan::memory::CognitiveStream *cognitive_stream_{nullptr};
+    titan::cognition::SceneMemoryEngine* scene_memory_ = nullptr; // [新增]
+    titan::control::ActionManager* action_mgr_ = nullptr;         // [新增]
 
     ActiveTask current_task_;
     std::future<std::string> llm_planning_result_; // 异步 LLM 规划结果
+
+    // 状态追踪：用于 needsEnvironmentalUpdate
+    TimePoint last_env_update_time_;
+    TimePoint last_cognition_plan_time_;
 public:
+    MultiTaskExecutive() {
+        // 初始化时间戳
+        last_env_update_time_ = std::chrono::steady_clock::now();
+        last_cognition_plan_time_ = std::chrono::steady_clock::now();
+    }
+   
+    // [新增] 注入场景记忆引擎
+    void injectSceneMemory(titan::cognition::SceneMemoryEngine* scene_mem) {
+        scene_memory_ = scene_mem;
+    }
+    // [新增] 注入动作管理器
+    void injectActionManager(titan::control::ActionManager* action_mgr) {
+        action_mgr_ = action_mgr;
+    }
     /**
      * @brief 注入策略优化器，用于在规划时检索经验策略。
      * @param optimizer StrategyOptimizer 实例的指针。
@@ -200,6 +225,93 @@ public:
         << vec.x() << ", " << vec.y() << ", " << vec.z();
         return ss.str();
     }
+    bool needsEnvironmentalUpdate() {
+        auto now = std::chrono::steady_clock::now();
+        
+        // 设置环境扫描的频率：例如每 2 秒一次
+        // 过于频繁的检查会浪费计算资源，且环境变化通常没那么快
+        double elapsed = std::chrono::duration<double>(now - last_env_update_time_).count();
+        
+        if (elapsed > 2.0) {
+            last_env_update_time_ = now;
+            return true;
+        }
+        return false;
+    }
+    ActionProposal getCognitionProposal(const FusedContext& ctx, titan::cognition::ObjectCognitionEngine& cognition) {
+        ActionProposal proposal;
+
+            // 0. 安全检查：如果核心组件未注入，直接返回空
+        if (!scene_memory_ || !action_mgr_) {
+            // 可以输出调试警告，但不要崩溃
+            // std::cerr << "[Executive] Warning: SceneMemory or ActionManager not injected." << std::endl;
+            return proposal; 
+        }
+
+        // 1. 具身测量任务 (Embodied Measurement)
+        // 利用 needsEnvironmentalUpdate 进行频控
+        if (needsEnvironmentalUpdate()) {
+            auto metrics = ctx.env_metrics;
+            
+            // A. 空间狭窄检测 (Safety / Navigation)
+            if (metrics.clearance_ratio < 1.5 && metrics.clearance_ratio > 0.1) { // >0.1 防止除零误报
+                proposal.source = "EnvironmentalAwareness";
+                proposal.description = "Narrow passage (" + std::to_string(metrics.estimated_width) + "m). Slowing down.";
+                proposal.priority = 8.0; // 高优先级，为了安全
+                
+                proposal.execute = [this]() {
+                    if (action_mgr_) {
+                        // 切换到爬行/低速模式
+                        action_mgr_->execute(Eigen::VectorXd::Zero(6), "SetMode:CRAWL");
+                    }
+                    if (cognitive_stream_) {
+                        cognitive_stream_->addEvent(EventType::PERCEPTION_BODY, "Environment is tight. Speed reduced.");
+                    }
+                };
+                return proposal; // 立即返回高优先级提案
+            }
+            
+            // B. 电量焦虑 (Self-Preservation)
+            if (metrics.battery_level < 0.2 && metrics.battery_level > 0.0) {
+                proposal.source = "SelfPreservation";
+                proposal.description = "Low Battery (" + std::to_string((int)(metrics.battery_level*100)) + "%). Seeking charger.";
+                proposal.priority = 20.0; // 极高优先级
+                
+                proposal.execute = [this]() {
+                    // 触发回充逻辑 (Mock)
+                    triggerPlanning("Battery critical. Abort current task and find charger.");
+                };
+                return proposal;
+            }
+        }
+
+        // 2. 场景构建与记忆加载 (Mapping & Loading)
+        if (ctx.vision.has_value()) {
+            int scene_id = -1;
+            // 调用 SceneMemoryEngine 进行识别
+            bool known = scene_memory_->recognizeOrMemorize(
+                ctx.vision->image, ctx.env_metrics, scene_id);
+                
+            if (known) {
+                // [逻辑扩展] 如果是已知场景，且我们还没加载过这里的物体...
+                // 这里可以添加 check，避免每帧都加载
+                // ...
+            }
+        }
+
+        // 3. 默认认知探索 (Idle Behavior)
+        // 如果没有特别紧急的环境事件，且世界模型为空，则主动观察
+        if (cognition.getAllEntitiesPtrs().empty()) {
+            proposal.source = "CognitionExploration";
+            proposal.description = "Scan environment for entities.";
+            proposal.priority = 1.5; 
+            proposal.execute = [this]() {
+                if (action_mgr_) action_mgr_->execute(Eigen::VectorXd::Zero(6), "HeadScan");
+            };
+        }
+
+        return proposal;
+    }
     // --- 3. 生成当前时刻的行为提案 ---
     // --- [核心集成点]：提案生成与 RAG 策略检索 ---
     ActionProposal getBestProposal(const titan::core::FusedContext& ctx, titan::cognition::ObjectCognitionEngine& cognition) {
@@ -345,6 +457,9 @@ public:
             cognitive_stream_->addEvent(titan::core::EventType::THOUGHT_CHAIN, "Decided next step: " + action);
         }
         // ... 调用 ActionManager 执行 ...
+        if (action_mgr_) {
+            action_mgr_->execute(Eigen::VectorXd::Zero(6), action);
+        }
     }
 
     // 获取当前最高优先级任务的视觉目标 (给 AttentionEngine 用)

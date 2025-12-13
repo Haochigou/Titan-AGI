@@ -1,202 +1,180 @@
-# Titan-AGI: Edge-Side Embodied Cognitive Intelligence Framework
+# Titan-AGI: Embodied Cognitive Agent Framework
 
-[](https://isocpp.org/)
-[](https://www.google.com/search?q=)
-[](https://www.google.com/search?q=)
+> **Towards System 2 Reasoning in Embodied Robotics.**
 
-**Titan-AGI** 是一个专为端侧设备（如嵌入式机器人、边缘计算单元）设计的高性能具身智能（Embodied AI）框架。
+Titan-AGI 是一个高性能的具身智能（Embodied AI）框架，专为异构机器人平台设计。它不仅仅是连接 LLM 和控制器的胶水层，而是实现了一个完整的**认知架构（Cognitive Architecture）**。
 
-不同于传统的“感知-规划-控制”流水线，Titan-AGI 基于 **双过程认知理论 (Dual-Process Theory)** 和 **自由能原理 (Free Energy Principle)** 构建。它不仅具备毫秒级的运动反应能力，还拥有基于 LLM 的长期推理、多任务编排和情景记忆能力。
+该框架融合了 **System 1（快速感知与反应）** 和 **System 2（慢速推理与规划）**，赋予机器人**物体恒常性**、**环境场景记忆**以及**具身自我意识**（如体型感知与电量焦虑）。
 
 -----
 
-## 🌟 Core Features (核心特性)
+## 🚀 Key Features (核心特性)
 
-### 1\. 🧠 双过程认知架构 (System 1 & System 2)
+### 1\. 🧠 Object Permanence & Cognition (物体恒常性与认知)
 
-  * **System 1 (快系统):** 基于 C++ 硬实时逻辑、YOLO 和 FEP 控制器。负责毫秒级的反射、避障和习惯性动作。
-  * **System 2 (慢系统):** 集成 LLM/VLM 和 战略规划器。负责复杂任务拆解、跨任务优化和长程推理。
+机器人不再只是逐帧检测物体。通过 **`ObjectCognitionEngine`**，Titan-AGI 维护着一个持久化的 3D 实体图谱。
 
-### 2\. 👁️ 主动视觉与预测编码 (Active Vision & Predictive Coding)
+  * **ID Tracking:** 即使物体被短暂遮挡或漏检，系统仍能维持 ID 不变。
+  * **State Estimation:** 实时估算物体的 3D 速度，支持对动态目标的预判。
+  * **Semantic Injection:** 自动注入常识属性（如 "Cup" -\> `graspable: true`, `fragile: true`），为高层规划提供决策依据。
 
-  * **混合注意力机制:** 融合自下而上（显著性、惊奇度）和自上而下（任务目标）的注意力流。
-  * **预测编码:** 每一层都生成感知的“预期”。当预期与现实不符时，产生预测误差（Surprise），驱动学习或注意力转移。
+### 2\. 🗺️ Embodied Scene Memory (具身场景记忆)
 
-### 3\. 🦾 亚毫秒级时空对齐 (Sub-ms Synchronization)
+引入 **`SceneMemoryEngine`**，使机器人能够“记住”它去过的地方。
 
-  * **多轨道环形缓冲 (Multi-Track Ring Buffer):** 异步存储视觉、听觉和本体数据。
-  * **高精度插值:** 使用 SLERP (球面线性插值) 和时间外推算法，解决视觉延迟（Latency）导致的手眼不协调问题，实现高速动态抓取。
+  * **Topological Localization:** 识别环境指纹，实现场景再认（Relocalization）。
+  * **Embodied Metrics:** 机器人用“身体”丈量世界。它知道环境的通道宽度是否允许自己通过（`clearance_ratio`），并根据电量（`battery_level`）和功耗估算剩余行走里程。
+  * **Persistent Mapping:** 自动将关键实体锚定在场景记忆中（例如：“充电桩在客厅”）。
 
-### 4\. 📚 稀疏高斯过程记忆 (Sparse GP Muscle Memory)
+### 3\. ⚡ Async Executive with RAG (异步 RAG 规划器)
 
-  * **运动记忆:** 使用稀疏高斯过程 (Sparse Gaussian Process) 学习物理特性（如摩擦力、重量）。
-  * **在线进化:** 具备遗忘机制和关键经验筛选，保证推理速度始终为 $O(1)$，支持终身学习。
+**`MultiTaskExecutive`** 实现了非阻塞的异步规划。
 
-### 5\. 📖 叙事性实体记忆 (Narrative Entity Memory)
+  * **Experience RAG:** 利用 **Strategy Optimizer**，在规划前检索类似的历史成功策略，实现经验进化。
+  * **Persistent Cognition:** 在没有用户指令时，Agent 不会发呆，而是运行低优先级的“常驻认知任务”，主动扫描环境、优化工作记忆。
 
-  * **客体认知:** 从“检测框”进化为“世界实体 (World Entity)”，具备 Object Permanence。
-  * **情景记忆:** 记录 "Who did What to Whom When"，支持基于 RAG 的语义检索和共情策略生成。
+### 4\. ⚖️ Competitive Behavior Arbitration (竞价式行为仲裁)
 
-### 6\. ⚡ 多任务动态调度 (Dynamic Multi-Tasking)
+摒弃传统的有限状态机，采用 **`BehaviorArbiter`** 进行基于优先级的行为竞价。
 
-  * **微观调度:** 基于动态评分（距离、资源、紧迫度）在每一帧进行软上下文切换。
-  * **宏观规划:** 利用 LLM 进行跨任务优化（如路径合并），处理复杂的任务依赖。
+  * **Safety First:** 安全反射（System 1）拥有最高优先级（P=100.0）。
+  * **User Command:** 用户指令驱动 Executive 规划（P=5.0）。
+  * **Curiosity & Maintenance:** 环境认知与探索作为背景任务（P=1.5）。
 
 -----
 
-## 🏗️ System Architecture (系统架构)
+## 🏗️ Architecture Overview (架构概览)
 
-Titan-AGI 采用模块化分层设计，确保高性能与可扩展性：
+Titan-AGI 采用双流（Dual-Stream）混合架构，通过 **World Model** 桥接感知与决策，并使用 **Behavior Arbiter** 统一输出接口。
 
 ```mermaid
 graph TD
-    Sensor[Sensors: Cam/Mic/IMU] --> |Raw Data| Perception(Perception System)
-    
-    subgraph "L1: Perception & Alignment"
-        Perception --> |Ring Buffer| Sync[Time Alignment & Fusion]
-        ASR[ASR Thread] --> |Transcript| Sync
+    %% --- 样式定义 ---
+    classDef hardware fill:#333,stroke:#000,stroke-width:2px,color:#fff;
+    classDef logic fill:#e1f5fe,stroke:#0277bd,stroke-width:2px;
+    classDef memory fill:#fff3e0,stroke:#ff9800,stroke-width:2px;
+    classDef decision fill:#fce4ec,stroke:#c2185b,stroke-width:2px;
+
+    %% --- 硬件输入 ---
+    Sensors(Sensors<br/>Camera / Lidar / Body Status) ::: hardware --> Perception[Perception System] ::: logic
+
+    %% --- 核心：世界模型 ---
+    subgraph WorldModel [World Model & Cognition]
+        direction TB
+        Perception --> |Visual Detections| ObjEng[Object Cognition Engine] ::: memory
+        Perception --> |Env Metrics| SceneEng[Scene Memory Engine] ::: memory
+        
+        ObjEng -- Entities + ID --> Context((Fused Context))
+        SceneEng -- Scene Node + Battery --> Context
     end
-    
-    subgraph "L2: Cognition & Memory"
-        Sync --> ObjectEng[Object Cognition Engine]
-        ObjectEng <--> EntityMem[Entity Memory Graph]
-        SparseGP[Sparse GP Memory] <--> FEP
+
+    %% --- System 1: 快速反应 ---
+    subgraph Sys1 [System 1: Fast & Reactive]
+        Context --> Safety[Safety Reflex] ::: logic
+        Safety --> |Proposal P=100.0| Arbiter
     end
-    
-    subgraph "L3: Strategic Planning (System 2)"
-        LLM[LLM / Strategic Planner] --> |Task Plan| Exec[Multi-Task Executive]
-        Exec <--> |State Update| ObjectEng
+
+    %% --- System 2: 慢速规划 ---
+    subgraph Sys2 [System 2: Slow & Deliberative]
+        Context --> Executive[MultiTask Executive] ::: logic
+        
+        %% 记忆与 RAG
+        Stream[(Cognitive Stream)] ::: memory <--> Executive
+        Strategy[(Strategy Optimizer)] ::: memory -.-> |RAG: Learned Policy| Executive
+        
+        Executive --> |Proposal P=5.0/1.5| Arbiter
     end
+
+    %% --- 仲裁与执行 ---
+    Arbiter{Behavior Arbiter} ::: decision
     
-    subgraph "L4: Execution (System 1)"
-        Exec --> |Proposal| Arbiter[Behavior Arbiter]
-        Attn[Attention Engine] --> |Saliency| Arbiter
-        Arbiter --> |Action| FEP[FEP Controller]
-    end
-    
-    FEP --> |Motor Cmd| Actuator[Robot Actuators]
+    Arbiter --> |Winner-Take-All| ActionMgr[Action Manager] ::: logic
+    ActionMgr --> Robot(Robot Hardware) ::: hardware
+
+    %% --- 隐式闭环 ---
+    Robot -.-> |Physical Feedback| Sensors
 ```
 
------
+### 架构解析
 
-## 📂 Directory Structure (工程目录)
-
-```text
-Titan-AGI/
-├── CMakeLists.txt           # 构建脚本 (支持 Ninja/CCache/LTO)
-├── include/titan/           # 头文件 (接口定义)
-│   ├── core/                # 基础类型, 数学库, 环形缓冲
-│   ├── memory/              # 稀疏GP记忆, 实体情景记忆
-│   ├── perception/          # 感知系统, ASR集成, 注意力引擎
-│   ├── cognition/           # 客体认知, 世界模型
-│   ├── control/             # FEP 主动推理控制器
-│   └── agent/               # TitanAgent, 多任务管家, 行为仲裁
-└── src/                     # 源代码 (具体实现)
-    ├── memory/              # SparseGP, EntityMemory 实现
-    ├── perception/          # 传感器对齐, 视觉处理实现
-    ├── cognition/           # Object Tracking 实现
-    ├── control/             # 自由能最小化算法实现
-    ├── agent/               # 核心 Tick 循环, 任务调度实现
-    └── main.cpp             # 程序入口 & 模拟器
-```
+1.  **Sensors & Perception**: 原始数据被处理为 `VisualDetection`（视觉）和 `EnvironmentMetrics`（具身度量）。
+2.  **World Model (Memory)**:
+      * **Object Cognition**: 负责物体恒常性（ID Tracking）和属性注入。
+      * **Scene Memory**: 负责环境拓扑识别和自我状态（电量/尺寸）评估。
+3.  **System 1 (Reflex)**: 绕过复杂计算，直接基于当前帧产生高优先级的安全反射（如防碰撞）。
+4.  **System 2 (Executive)**:
+      * 处理用户指令（Task）或主动环境维护（Cognition）。
+      * **RAG Loop**: 向 `Strategy Optimizer` 检索历史策略。
+      * **Working Memory**: 读写 `Cognitive Stream`。
+5.  **Behavior Arbiter**: 接收所有子系统的 `ActionProposal`，根据优先级（Priority）和置信度选择唯一的动作交给硬件执行。
 
 -----
 
-## 🚀 Getting Started (快速开始)
+## 📂 Core Modules (核心模块说明)
 
-### Prerequisites (依赖环境)
+### `include/titan/cognition/`
 
-  * **Compiler:** GCC 9+ or Clang 10+ (C++17 Support)
-  * **Build System:** CMake 3.15+
-  * **Math Library:** Eigen3 (3.3+)
-  * **Computer Vision:** OpenCV 4.x
-  * **Optional:** Ninja (for faster builds), CCache
+  * **`object_cognition.h`**: 核心认知引擎。处理物体追踪、卡尔曼滤波速度估计和语义属性注入。
+  * **`scene_memory.h`**: 场景记忆引擎。负责环境识别、具身度量计算（电量/宽度）和拓扑地图构建。
 
-### Installation (安装步骤)
+### `include/titan/agent/`
 
-1.  **Clone the repository:**
+  * **`multi_task_executive.h`**: 系统的大脑。
+      * 管理任务队列 (`ActiveTask`)。
+      * 集成 `injectStrategyOptimizer` 进行 RAG 增强规划。
+      * 运行 `getCognitionProposal` 进行常驻环境维护。
+  * **`behavior_arbiter.h`**: 系统的裁判。接收来自 Executive、Safety 和 Curiosity 的 `ActionProposal`，执行赢家通吃（Winner-Take-All）逻辑。
 
-    ```bash
-    git clone https://github.com/your-username/titan-agi.git
-    cd titan-agi
-    ```
+### `include/titan/core/`
 
-2.  **Create build directory:**
-
-    ```bash
-    mkdir build && cd build
-    ```
-
-3.  **Configure & Build:**
-
-    ```bash
-    # Release mode is recommended for performance
-    cmake -DCMAKE_BUILD_TYPE=Release -GNinja ..
-    ninja
-    ```
-
-4.  **Run the Simulation:**
-
-    ```bash
-    ./titan_main
-    ```
+  * **`types.h`**: 定义了通用的数据结构。
+      * `WorldEntity`: 包含物理状态（位置/速度）和认知图谱的实体。
+      * `EnvironmentMetrics`: 描述环境相对于机器人身体的属性（`clearance_ratio`, `estimated_runtime`）。
+      * `ActionProposal`: 包含优先级、描述和执行闭包的原子行为单元。
 
 -----
 
-## 💡 Usage Example (核心逻辑概览)
+## 🛠️ Build & Integration (构建与集成)
 
-在 `main.cpp` 中，你可以看到 Agent 的典型生命周期：
+Titan-AGI 是一个纯 C++17 Header-Only 核心库（依赖 OpenCV, Eigen, nlohmann\_json）。
+
+### Dependencies
+
+  * **C++17** Compiler
+  * **Eigen3** (Matrix & Vector math)
+  * **OpenCV 4.x** (Vision processing)
+  * **nlohmann\_json** (Serialization)
+
+### Example Usage (Pseudo-code)
 
 ```cpp
-// 初始化 Agent
-titan::agent::TitanAgent robot;
+// 1. Initialize Modules
+TitanAgentImpl agent;
+agent.multi_executive_.injectStrategyOptimizer(&optimizer);
+agent.multi_executive_.injectSceneMemory(&scene_memory);
 
-// 1. 模拟用户输入 (System 2 介入)
-robot.onUserCommand("Clean the kitchen and find my red cup");
-
-// 2. 主控制循环 (100Hz)
+// 2. Main Loop (e.g., 100Hz)
 while (running) {
-    // 注入传感器数据 (支持异步/延迟模拟)
-    robot.feedSensors(current_robot_state, camera_image, capture_time);
+    // Perception -> Cognition -> Planning -> Action
+    agent.tick(); 
     
-    // 执行一帧思考与行动
-    robot.tick(); 
-    
-    // 内部发生了什么:
-    // 1. Perception 对齐时间，生成 FusedContext
-    // 2. ObjectCognition 更新世界实体 (ID Tracking)
-    // 3. MultiTaskExecutive 评估优先级，生成 ActionProposal
-    // 4. AttentionEngine 计算显著性 (预测误差 + 任务目标)
-    // 5. BehaviorArbiter 仲裁最佳行为
-    // 6. FEPController 计算力矩指令
+    // The agent will automatically:
+    // - Track objects (ObjectCognition)
+    // - Measure environment width/battery (SceneMemory)
+    // - Execute user tasks OR explore (Executive)
 }
 ```
 
 -----
 
-## 🛠️ Engineering Highlights (工程亮点)
-
-  * **PImpl Idiom:** `TitanAgent` 使用 PImpl 模式隐藏实现细节，确保 API 接口极其整洁，并大幅减少编译依赖。
-  * **Thread Safety:** 核心数据结构 `RingTrack` 采用互斥锁保护，支持感知线程写入与控制线程读取的并发操作。
-  * **Zero-Copy Design:** 在关键路径（如任务生成）使用移动语义 (`std::move`) 和原地构造 (`emplace_back`)，避免不必要的内存分配。
-  * **Data Persistence:** 支持将稀疏记忆和实体图谱序列化到磁盘，实现机器人重启后的知识保留。
-
------
-
 ## 🔮 Roadmap (未来规划)
 
-  * [ ] **Hardware Integration:** 适配 ROS2 接口，部署至实机 (Realman/Jaka Arms)。
-  * [ ] **LLM Integration:** 接入本地量化 LLM (Llama-3-8B-Quantized) 替代 Mock 接口。
-  * [ ] **VLM Capability:** 集成 Open-Vocabulary Segmentation (如 YOLO-World + SAM)。
-  * [ ] **SLAM Fusion:** 将客体位置与 3D 语义地图 (Semantic OctoMap) 融合。
+1.  **VLA (Vision-Language-Action) Model Integration:** 将目前的 YOLO+LLM 管道替换为端到端的 VLA 模型（如 RT-2 或 OpenVLA）接口。
+2.  **Episodic Memory Replay:** 在夜间充电模式下，对白天的 `CognitiveStream` 进行回放和强化学习训练。
+3.  **Sim2Real Pipeline:** 提供基于 Isaac Sim 的标准仿真环境接口。
 
 -----
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](https://www.google.com/search?q=LICENSE) file for details.
-
------
-
-**Titan-AGI** is maintained by the Embodied AI Team.
-*Pushing the boundaries of edge-side cognitive intelligence.*
+MIT License. See `LICENSE` for more information.

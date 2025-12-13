@@ -156,7 +156,15 @@ FusedContext PerceptionSystem::getContext(TimePoint t_query) {
     }
     if (cam_driver_) ctx.system_status.vision_state = cam_driver_->getState();
     if (body_driver_) ctx.system_status.arm_state = body_driver_->getState();
-        
+    
+    // [新增] 实时计算具身指标
+    // 假设我们有 SceneMemoryEngine 的引用或辅助计算类
+    // ctx.env_metrics = metric_calculator_.compute(vision_frame, system_status);
+    
+    // 模拟数据填充
+    ctx.env_metrics.battery_level = 0.85;
+    ctx.env_metrics.estimated_width = 3.2; // 宽敞
+    ctx.env_metrics.clearance_ratio = 3.2 / 0.6;
     // 模拟电池
     ctx.system_status.battery_voltage = 24.5;
     return ctx;

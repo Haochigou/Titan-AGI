@@ -9,7 +9,7 @@
 #include "titan/control/fep_controller.h"
 #include "hal/tts_engine.h"
 #include "titan/control/action_manager.h"
-
+#include "titan/cognition/scene_memory.h" // 确保包含
 #include <iostream>
 #include <future>
 
@@ -35,14 +35,22 @@ public:
     control::FEPController controller_;
     control::ActionManager action_mgr_;
     hal::TTSEngine tts_engine_;
+    titan::cognition::SceneMemoryEngine scene_memory_engine_;    
 
     // --- 构造函数 ---
     TitanAgentImpl() : action_mgr_(nullptr) { 
-        // 绑定 StrategyOptimizer 到 Planner，实现策略检索
+        // 1. 绑定 StrategyOptimizer
         multi_executive_.injectStrategyOptimizer(&learner_);
         
-        // 绑定 CognitiveStream 到 Planner，实现基于记忆的规划
+        // 2. 绑定 CognitiveStream
         multi_executive_.injectMemoryStream(&stream_);
+        
+        // 3. [新增] 绑定 ActionManager (注意：action_mgr_ 需要先初始化)
+        // 假设 action_mgr_ 是 TitanAgentImpl 的成员变量 titan::control::ActionManager action_mgr_;
+        multi_executive_.injectActionManager(&action_mgr_);
+
+        // 4. [新增] 绑定 SceneMemory
+        multi_executive_.injectSceneMemory(&scene_memory_engine_);
     }
 
     // --- 核心心跳函数 (The Heartbeat) ---

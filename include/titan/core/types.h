@@ -15,6 +15,39 @@ namespace titan::core {
 using json = nlohmann::json;
 using TimePoint = std::chrono::steady_clock::time_point;
 using namespace Eigen;
+
+// --- 具身环境度量 (Embodied Environment Metrics) ---
+struct EnvironmentMetrics {
+    // 物理维度 (相对于机器人身体)
+    double estimated_width = 0.0;       // 环境通道宽度 (m)
+    double clearance_ratio = 0.0;       // 宽度 / 机器人肩宽 (判定能否通过)
+    
+    // 能源与续航维度 (Energy & Time)
+    double battery_level = 1.0;         // 当前电量 (0.0 - 1.0)
+    double avg_power_consumption = 0.0; // 平均功耗 (W)
+    double estimated_runtime_min = 0.0; // 预计剩余运行时间 (分钟)
+    double max_walkable_dist = 0.0;     // 预计还能走多远 (m)
+};
+
+// --- 稳定的场景记忆节点 (Stable Scene Memory) ---
+struct SceneNode {
+    int id;
+    std::string semantic_label;     // 语义标签 (e.g., "Living Room", "Narrow Corridor")
+    TimePoint created_at;
+    
+    // 1. 视觉指纹 (Visual Fingerprint)
+    // 用于回环检测 (Loop Closure) 和再识别
+    // 简单模拟：使用图像的全局直方图或 Embedding
+    cv::Mat visual_descriptor; 
+    
+    // 2. 具身属性 (Embodied Attributes)
+    EnvironmentMetrics metrics;
+    
+    // 3. 实体锚点 (Entity Anchors)
+    // 记住这个场景里有哪些关键物体 (用于 Memory Loading)
+    std::vector<int> anchor_entity_ids; 
+};
+
 // --- 视觉检测结果：瞬时感知 (System 1 Input) ---
 struct VisualDetection {
     // 识别与置信度
@@ -206,6 +239,7 @@ struct FusedContext {
     std::optional<AudioTranscript> latest_transcript;
     std::string attention;  // 来自上层的注意力
     SystemStatus system_status;
+    EnvironmentMetrics env_metrics; // [新增]
 };
 
 } // namespace titan::core
